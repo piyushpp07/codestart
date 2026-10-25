@@ -19,6 +19,11 @@ const modeDetails = {
   execute: { icon: "⌘", title: "Execute", description: "Use connected tools after confirmation." },
 };
 
+const graphPoint = (index, total, radius = 215) => {
+  const angle = (index / Math.max(total, 1)) * Math.PI * 2 - Math.PI / 2;
+  return { x: 280 + Math.cos(angle) * radius, y: 280 + Math.sin(angle) * radius };
+};
+
 const buildTree = (paths) => {
   const root = { folders: {}, files: [] };
   paths.forEach((path) => {
@@ -96,6 +101,12 @@ function App() {
   const [mcpCommand, setMcpCommand] = useState("npx");
   const [mcpArgs, setMcpArgs] = useState("");
   const [mcpEnv, setMcpEnv] = useState("");
+  const [graphOpen, setGraphOpen] = useState(false);
+  const [graphData, setGraphData] = useState(null);
+  const [gitOpen, setGitOpen] = useState(false);
+  const [gitData, setGitData] = useState(null);
+  const [branchName, setBranchName] = useState("");
+  const [commitMessage, setCommitMessage] = useState("");
   const composerRef = useRef(null);
 
   const refresh = async () => {
@@ -146,7 +157,7 @@ function App() {
   }, [settingsOpen, settings]);
   useEffect(() => {
     const onKeyDown = (event) => {
-      if (event.key === "Escape") { setSettingsOpen(false); setToolsOpen(false); setSelectedFile(null); }
+      if (event.key === "Escape") { setSettingsOpen(false); setToolsOpen(false); setGraphOpen(false); setGitOpen(false); setSelectedFile(null); }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -213,6 +224,43 @@ function App() {
     catch (error) { setNotice(error.message); }
   };
 
+  const openGraph = async () => {
+    setGraphOpen(true);
+    try { setGraphData(await request("/api/graph")); }
+    catch (error) { setNotice(error.message); }
+  };
+
+  const refreshGit = async () => {
+    try { setGitData(await request("/api/git")); }
+    catch (error) { setNotice(error.message); }
+  };
+
+  const openGit = async () => { setGitOpen(true); await refreshGit(); };
+
+  const createGitBranch = async () => {
+    if (!branchName.trim()) return;
+    setBusy(true);
+    try { setGitData(await request("/api/git/branches", { method: "POST", body: JSON.stringify({ name: branchName }) })); setBranchName(""); setNotice("Branch created and checked out."); }
+    catch (error) { setNotice(error.message); }
+    finally { setBusy(false); }
+  };
+
+  const checkoutGitBranch = async (name) => {
+    if (!window.confirm(`Switch to ${name}? Git will stop if uncommitted changes cannot be safely carried over.`)) return;
+    setBusy(true);
+    try { setGitData(await request("/api/git/checkout", { method: "POST", body: JSON.stringify({ name }) })); setNotice(`Switched to ${name}.`); }
+    catch (error) { setNotice(error.message); }
+    finally { setBusy(false); }
+  };
+
+  const commitGitChanges = async () => {
+    if (!commitMessage.trim() || !window.confirm("Create a Git commit with all current workspace changes?")) return;
+    setBusy(true);
+    try { setGitData(await request("/api/git/commit", { method: "POST", body: JSON.stringify({ message: commitMessage }) })); setCommitMessage(""); setNotice("Commit created locally."); }
+    catch (error) { setNotice(error.message); }
+    finally { setBusy(false); }
+  };
+
   const updatePreset = async (name, enabled) => {
     setBusy(true);
     try {
@@ -253,6 +301,7 @@ function App() {
   const currentModel = settings?.current?.model || "Choose a model";
   const connectedMcpCount = toolCatalog?.mcp_servers?.filter((server) => server.enabled).length || 0;
   const selectedProviderModels = providerModels[provider];
+  const graphPositions = useMemo(() => Object.fromEntries((graphData?.nodes || []).map((node, index) => [node.id, graphPoint(index, graphData.nodes.length)])), [graphData]);
   const modelChoices = useMemo(() => Array.from(new Set([
     ...(selectedProviderModels?.models || []),
     ...(providerInfo?.models || []),
@@ -306,6 +355,8 @@ function App() {
       <div className="header-actions">
         <span className="model-chip" title="The selected model for new requests"><span className="live-dot"></span>{currentProvider?.label || "Model"} <b>{currentModel}</b></span>
         <span className={`workspace-chip ${status?.staged ? "has-changes" : ""}`}><span>{status?.staged ? "●" : "✓"}</span>{status?.staged ? "Changes ready" : "Workspace clean"}</span>
+        <button className="tools-button" onClick={openGraph}>⌘ Graph</button>
+        <button className="tools-button" onClick={openGit}>⌥ Git</button>
         <button className="tools-button" onClick={openTools}>⌘ Tools{connectedMcpCount ? <b>{connectedMcpCount}</b> : ""}</button>
         <button className="settings-button" onClick={() => setSettingsOpen(true)}>⚙ <span>Model settings</span></button>
       </div>
@@ -357,6 +408,10 @@ function App() {
     </section>
 
     {selectedFile && <section className="preview pane"><div className="pane-title"><div><span className="eyebrow">FILE PREVIEW</span><h2>{selectedFile}</h2></div><button className="ghost" onClick={() => setSelectedFile(null)}>Close <kbd>Esc</kbd></button></div><pre>{fileContent}</pre></section>}
+
+    {graphOpen && <div className="modal-backdrop" role="presentation"><section className="graph-modal pane" role="dialog" aria-modal="true" aria-labelledby="graph-title"><div className="pane-title"><div><span className="eyebrow">CODE INTELLIGENCE</span><h2 id="graph-title">Dependency graph</h2></div><button className="ghost" onClick={() => setGraphOpen(false)}>Close <kbd>Esc</kbd></button></div><div className="graph-body"><div className="graph-summary"><span>{graphData?.nodes.length || 0} files</span><span>{graphData?.edges.length || 0} imports</span>{graphData?.truncated && <span>Showing a bounded view</span>}<button className="ghost" onClick={openGraph}>↻ Refresh</button></div>{graphData && <svg className="graph-canvas" viewBox="0 0 560 560" role="img" aria-label="Local code dependency graph"><g className="graph-edges">{graphData.edges.map((edge) => { const source = graphPositions[edge.source]; const target = graphPositions[edge.target]; return source && target ? <line key={`${edge.source}-${edge.target}`} x1={source.x} y1={source.y} x2={target.x} y2={target.y} /> : null; })}</g><g className="graph-nodes">{graphData.nodes.map((node) => { const point = graphPositions[node.id]; return <g className="graph-node" key={node.id} transform={`translate(${point.x} ${point.y})`} onClick={() => { openFile(node.id); setGraphOpen(false); }}><circle r="10" /><text x="14" y="4">{node.label}</text></g>; })}</g></svg>}{!graphData && <div className="empty-state"><span>⌘</span><h3>Building graph</h3><p>Reading local imports and dependency links.</p></div>}<p className="graph-note">Click a node to preview its file. The graph stays local and includes only workspace imports.</p></div></section></div>}
+
+    {gitOpen && <div className="modal-backdrop" role="presentation"><section className="git-modal pane" role="dialog" aria-modal="true" aria-labelledby="git-title"><div className="pane-title"><div><span className="eyebrow">LOCAL VERSION CONTROL</span><h2 id="git-title">Git workspace</h2></div><button className="ghost" onClick={() => setGitOpen(false)}>Close <kbd>Esc</kbd></button></div><div className="git-body">{gitData?.is_repo ? <><div className="git-overview"><div><span>Current branch</span><b>{gitData.branch || "Detached HEAD"}</b></div><div><span>Workspace changes</span><b>{gitData.changes.length}</b></div><button className="ghost" onClick={refreshGit}>↻ Refresh</button></div><section className="git-section"><div className="section-heading"><div><span className="eyebrow">BRANCHES</span><h3>Switch or create</h3></div></div><div className="branch-list">{gitData.branches.map((branch) => <button key={branch} className={branch === gitData.branch ? "current" : ""} disabled={busy || branch === gitData.branch} onClick={() => checkoutGitBranch(branch)}>{branch === gitData.branch ? "✓ " : ""}{branch}</button>)}</div><div className="git-input"><input value={branchName} onChange={(event) => setBranchName(event.target.value)} placeholder="feature/short-description" /><button className="primary" disabled={busy || !branchName.trim()} onClick={createGitBranch}>Create branch</button></div></section><section className="git-section"><span className="eyebrow">COMMIT</span><h3>Save current workspace changes</h3><p>Creates a local commit with all current changes. Pushing to GitHub stays an explicit Execute/MCP action.</p><div className="git-input"><input value={commitMessage} onChange={(event) => setCommitMessage(event.target.value)} placeholder="Describe the change" /><button className="primary" disabled={busy || !commitMessage.trim() || gitData.changes.length === 0} onClick={commitGitChanges}>Commit all</button></div>{gitData.changes.length > 0 && <pre className="git-changes">{gitData.changes.join("\n")}</pre>}</section>{gitData.remotes.length > 0 && <section className="git-section"><span className="eyebrow">REMOTES</span><pre className="git-changes">{gitData.remotes.join("\n")}</pre></section>}</> : <div className="empty-state"><span>⌥</span><h3>Not a Git repository</h3><p>Initialize Git in this workspace to use branches and commits.</p></div>}</div></section></div>}
 
     {toolsOpen && <div className="modal-backdrop" role="presentation"><section className="tools-modal pane" role="dialog" aria-modal="true" aria-labelledby="tools-title"><div className="pane-title"><div><span className="eyebrow">INTEGRATIONS</span><h2 id="tools-title">Tools and MCP</h2></div><button className="ghost" onClick={() => setToolsOpen(false)}>Close <kbd>Esc</kbd></button></div><div className="tools-body">
       <p className="settings-intro">Core tools are built in. Connect trusted MCP servers to extend the agent for explicit execute requests.</p>

@@ -50,6 +50,10 @@ the terminal to stop the app.
 - Use **Write** to stage a change in memory, inspect its diff, then apply or
   discard it yourself.
 - Run local checks and ask for a diff review.
+- Open **Graph** to explore local Python and JavaScript/TypeScript import links;
+  click a node to preview the source file.
+- Open **Git** to inspect workspace status, create/switch local branches, and
+  make an explicit local commit. Git never force-switches, resets, or pushes.
 - Keep local conversations and switch between saved sessions.
 - Use **Execute** only after confirmation to run local commands and call MCP
   connections that you have explicitly enabled.
@@ -71,6 +75,11 @@ ignored by Git. API-key values are never displayed after saving. Custom MCP
 servers run commands on the host computer, so only connect sources you trust.
 MCP tools are available in **Execute** mode; the normal Ask, Plan, and staged
 Write modes preserve the safe local workflow.
+
+GitHub is supported through the optional **GitHub MCP** connection in Tools.
+Connect it with a local `GITHUB_TOKEN`, then use Execute for an explicitly
+requested GitHub action such as creating an issue or pull request. CodeStart
+does not push, create remotes, or modify GitHub unless you explicitly ask it to.
 
 For terminal-only usage, the earlier opt-in environment variables still work:
 

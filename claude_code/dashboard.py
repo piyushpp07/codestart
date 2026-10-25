@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from claude_code.agent.orchestrator import handle_query, reset_agents
 from claude_code.changes import get_change_manager
+from claude_code.code_graph import build_code_graph
 from claude_code.config import config
 from claude_code.context.indexers.code_parser import get_source_files
 from claude_code.context.indexers.semantic_indexer import index_codebase
@@ -34,6 +35,7 @@ from claude_code.mcp.mcp_config import (
     set_preset_enabled,
 )
 from claude_code.model_catalog import available_models
+from claude_code.git_service import commit_all, create_branch, git_overview, switch_branch
 from claude_code.settings import provider_catalog, public_llm_settings, save_llm_settings
 from claude_code.tools.filesystem_tools import _resolve_workspace_path
 
@@ -74,6 +76,14 @@ class CustomMCPServerUpdate(BaseModel):
     command: str
     args: list[str] = []
     env: dict[str, str] = {}
+
+
+class GitBranchUpdate(BaseModel):
+    name: str
+
+
+class GitCommitUpdate(BaseModel):
+    message: str
 
 
 def _session_rows(checkpoint_ids: list[str]) -> list[dict]:
@@ -192,6 +202,40 @@ async def files(query: str = Query(default="")) -> dict:
         if query.lower() in str(Path(path).relative_to(WORKSPACE)).lower()
     ]
     return {"files": filtered[:500], "total": len(filtered)}
+
+
+@app.get("/api/graph")
+async def graph() -> dict:
+    return await asyncio.to_thread(build_code_graph, str(WORKSPACE))
+
+
+@app.get("/api/git")
+async def git() -> dict:
+    return await asyncio.to_thread(git_overview, str(WORKSPACE))
+
+
+@app.post("/api/git/branches")
+async def git_branch(request: GitBranchUpdate) -> dict:
+    try:
+        return await asyncio.to_thread(create_branch, str(WORKSPACE), request.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/git/checkout")
+async def git_checkout(request: GitBranchUpdate) -> dict:
+    try:
+        return await asyncio.to_thread(switch_branch, str(WORKSPACE), request.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/git/commit")
+async def git_commit(request: GitCommitUpdate) -> dict:
+    try:
+        return await asyncio.to_thread(commit_all, str(WORKSPACE), request.message)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/api/file")

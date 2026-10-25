@@ -74,6 +74,10 @@ pytest = "^8.0"
 ruff = "^0.14"
 pyright = "^1.1"
 
+[tool.pytest.ini_options]
+# Ensure checks exercise the checkout rather than a previously installed wheel.
+pythonpath = ["."]
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
