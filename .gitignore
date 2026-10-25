@@ -1,0 +1,24 @@
+# Secrets — never commit
+.env
+# Vector store data
+.chromadb/
+.faiss/
+
+# Local conversation state and test cache
+.memory/
+.pytest_cache/
+.claude_code/mcp_servers.json
+
+# Dashboard build and dependency artifacts
+dashboard/node_modules/
+dashboard/dist/
+
+# Local Python build artifacts
+dist/
+*.egg-info/
+# Python
+__pycache__/
+*.pyc
+*.pyo
+# Virtual environments
+.venv/

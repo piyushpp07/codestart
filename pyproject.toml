@@ -1,0 +1,78 @@
+[project]
+name = "project1"
+version = "0.1.0"
+description = "A local-first RAG-powered command-line coding assistant"
+readme = "README.md"
+authors = [
+    {name = "piyushpp07",email = "piyushpar7@gmail.com"}
+]
+
+# FastEmbed's supported ONNX Runtime wheels currently cover Python 3.13, not
+# Python 3.14. Keep the declared range aligned with the runnable environment.
+requires-python = ">=3.13,<3.14"
+
+dependencies = [
+    "python-dotenv (>=1.2.2,<2.0.0)",
+    "PyYAML (>=6.0,<7.0)",
+    "openai (>=2.43.0,<3.0.0)",
+    "faiss-cpu (>=1.9.0,<2.0.0)",
+    "rich (>=15.0.0,<16.0.0)",
+    "prompt-toolkit (>=3.0.0,<4.0.0)",
+    "fastapi (>=0.115.0,<1.0.0)",
+    "uvicorn (>=0.30.0,<1.0.0)",
+    "pydantic (>=2.13.4,<3.0.0)",
+    "langchain (>=1.0.0,<2.0.0)",
+    "langchain-core (>=1.0.0,<2.0.0)",
+    "langchain-community (>=0.3.0,<1.0.0)",
+    "langgraph (>=1.0.0,<2.0.0)",
+    "langgraph-checkpoint-sqlite (>=3.0.0,<4.0.0)",
+    "aiosqlite (>=0.20.0,<1.0.0)",
+    "chromadb (>=0.5.0)",
+    "langchain-openai (>=1.0.0,<2.0.0)",
+    "langchain-anthropic (>=1.0.0,<2.0.0)",
+    "langchain-google-genai (>=4.0.0,<5.0.0)",
+    "langchain-ollama (>=1.0.0,<2.0.0)",
+    "pinecone (>=7.0.0,<8.0.0)",
+    "pinecone-text (>=0.11.0,<1.0.0)",
+    "fastembed (>=0.8.0,<1.0.0)",
+    # Newer ONNX Runtime macOS wheels require macOS 14; 1.23 supports the
+    # Python 3.13/macOS environments used by this local-first default.
+    "onnxruntime (>=1.23.0,<1.24.0)",
+    "tree-sitter (>=0.23.0,<1.0.0)",
+    "tree-sitter-python (>=0.23.0)",
+    "tree-sitter-javascript (>=0.23.0)",
+    "tree-sitter-typescript (>=0.23.0)",
+    "tree-sitter-java (>=0.23.0)",
+    "tree-sitter-go (>=0.23.0)",
+    "tree-sitter-rust (>=0.23.0)",
+    "tree-sitter-cpp (>=0.23.0)",
+    "tree-sitter-c (>=0.23.0)",
+    "tree-sitter-c-sharp (>=0.23.0)",
+    "tree-sitter-ruby (>=0.23.0)",
+    "tree-sitter-php (>=0.23.0)",
+    "tree-sitter-swift (>=0.7.0)",
+    "tree-sitter-kotlin (>=1.0.0)",
+    "tree-sitter-bash (>=0.23.0)",
+    "langchain-mcp-adapters (>=0.3.0,<1.0.0)"
+]
+
+[project.scripts]
+claude_code = "claude_code.main:main"
+
+[tool.poetry]
+packages = [{include = "claude_code"}]
+
+[tool.poetry.group.huggingface]
+optional = true
+
+[tool.poetry.group.huggingface.dependencies]
+langchain-huggingface = ">=1.0.0,<2.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+ruff = "^0.14"
+pyright = "^1.1"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

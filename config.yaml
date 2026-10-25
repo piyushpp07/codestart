@@ -1,0 +1,33 @@
+llm:
+  provider: gemini
+  model: gemini-2.5-flash
+
+embeddings:
+  provider: fastembed
+  model: BAAI/bge-small-en-v1.5
+
+vectorstore:
+  # FAISS is local and works with no cloud account. Set this to pinecone or
+  # pinecone_hybrid only after configuring the corresponding Pinecone index.
+  provider: faiss
+
+pinecone:
+  index_name: default
+  hybrid_index_name: hybrid
+
+faiss:
+  persist_dir: .faiss/
+  index_name: codebase
+chromadb:
+  persist_dir: .chroma/
+  collection_name: codebase
+elasticsearch:
+  url: http://localhost:9200
+  index_name: codebase
+memory:
+  db_path: .memory/memory.db
+  summarize_at_tokens: 4000
+  keep_last_messages: 20
+
+skills:
+  skills_dir: .claude_code/skills
