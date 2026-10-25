@@ -62,6 +62,11 @@ claude_code = "claude_code.main:main"
 
 [tool.poetry]
 packages = [{include = "claude_code"}]
+# Ship the built dashboard with the command-line package so `codestart` can
+# serve it from any workspace, including Node and React repositories.
+include = [
+    {path = "dashboard/dist", format = "wheel"},
+]
 
 [tool.poetry.group.huggingface]
 optional = true

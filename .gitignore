@@ -9,12 +9,14 @@
 .pytest_cache/
 .claude_code/mcp_servers.json
 
-# Dashboard build and dependency artifacts
+# Dashboard dependency artifacts
 dashboard/node_modules/
-dashboard/dist/
 
 # Local Python build artifacts
 dist/
+# The dashboard bundle is a release asset; ship it with the standalone CLI.
+!dashboard/dist/
+!dashboard/dist/**
 *.egg-info/
 # Python
 __pycache__/

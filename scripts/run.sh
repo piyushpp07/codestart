@@ -44,4 +44,4 @@ fi
 npm run build --prefix dashboard
 
 echo "Starting CodeStart at http://127.0.0.1:8000"
-exec .venv/bin/python -m claude_code.main --dashboard
+exec .venv/bin/codestart --dashboard

@@ -23,12 +23,27 @@ Clone the repository, then start everything with one command:
 ```bash
 git clone <your-repository-url>
 cd codestart
-./run.sh
+./scripts/run.sh
 ```
 
 `run.sh` creates a local Python environment, installs CodeStart,
 installs/builds the dashboard, creates `.env` from `.env.example` when needed,
 and starts the dashboard at [http://127.0.0.1:8000](http://127.0.0.1:8000).
+
+### Use CodeStart in any project
+
+Install the command once with `pipx`, then run it directly from any React,
+Node.js, TypeScript, or Python project. The project does **not** need a
+`pyproject.toml` file:
+
+```bash
+pipx install git+https://github.com/piyushpp07/codestart.git
+cd /path/to/your-project
+codestart --dashboard
+```
+
+`poetry run` is only for developing CodeStart from its own repository. It is
+not the command to use inside a project you want CodeStart to inspect.
 
 Open **Model settings** and choose your provider, model, API keys, and fallback
 chain. Add multiple keys (one per line) to recover from a quota or rate limit:
@@ -39,7 +54,7 @@ the local `.env` file and are never returned by the dashboard. Use `Ctrl+C` in
 the terminal to stop the app.
 
 > On macOS or Linux, make the launcher executable once after cloning if Git
-> did not preserve its mode: `chmod +x run.sh`.
+> did not preserve its mode: `chmod +x scripts/run.sh`.
 
 ## What it can do
 
