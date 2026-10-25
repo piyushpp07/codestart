@@ -46,3 +46,10 @@ def load_config() -> dict:
 
 
 config = load_config()
+
+
+def reload_config() -> dict:
+    """Reload configuration in place after the active workspace changes."""
+    config.clear()
+    config.update(load_config())
+    return config

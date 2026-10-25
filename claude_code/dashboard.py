@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -15,7 +16,7 @@ from pydantic import BaseModel
 from claude_code.agent.orchestrator import handle_query, reset_agents
 from claude_code.changes import get_change_manager
 from claude_code.code_graph import build_code_graph
-from claude_code.config import config
+from claude_code.config import config, reload_config
 from claude_code.context.indexers.code_parser import get_source_files
 from claude_code.context.indexers.semantic_indexer import index_codebase
 from claude_code.main import _git_diff, run_validation
@@ -27,7 +28,7 @@ from claude_code.memory.session import (
     session_metadata,
     switch_session,
 )
-from claude_code.memory.short_term import get_session_history, list_session_ids
+from claude_code.memory.short_term import close_checkpointer, get_session_history, list_session_ids
 from claude_code.mcp.mcp_config import (
     public_mcp_servers,
     remove_custom_mcp_server,
@@ -86,6 +87,10 @@ class GitCommitUpdate(BaseModel):
     message: str
 
 
+class WorkspaceUpdate(BaseModel):
+    path: str
+
+
 def _session_rows(checkpoint_ids: list[str]) -> list[dict]:
     metadata = all_session_metadata()
     ids = list(dict.fromkeys([*checkpoint_ids, *metadata]))
@@ -117,6 +122,49 @@ async def status() -> dict:
         "staged": get_change_manager().has_staged_changes,
         "indexed_files": file_count,
     }
+
+
+@app.post("/api/workspace")
+async def change_workspace(request: WorkspaceUpdate) -> dict:
+    """Move this local dashboard to another folder and rebuild its local index."""
+    global WORKSPACE
+
+    raw_path = request.path.strip()
+    if not raw_path:
+        raise HTTPException(status_code=400, detail="Choose a workspace folder.")
+    target = Path(raw_path).expanduser().resolve()
+    if not target.exists() or not target.is_dir():
+        raise HTTPException(status_code=400, detail="Workspace folder does not exist.")
+    if target == WORKSPACE:
+        return {"workspace": str(WORKSPACE), "result": "This workspace is already open.", "indexed_files": 0}
+    if get_change_manager().has_staged_changes:
+        raise HTTPException(
+            status_code=409,
+            detail="Apply or discard staged changes before switching workspaces.",
+        )
+
+    try:
+        await close_checkpointer()
+        os.chdir(target)
+        WORKSPACE = target
+        reload_config()
+        reset_agents()
+    except OSError as exc:
+        raise HTTPException(status_code=400, detail=f"Could not open workspace: {exc}") from exc
+
+    try:
+        index = await asyncio.to_thread(index_codebase, str(WORKSPACE), True)
+        return {
+            "workspace": str(WORKSPACE),
+            "result": f"Opened {WORKSPACE.name} and indexed {index.index.ntotal} chunks.",
+            "indexed_files": index.index.ntotal,
+        }
+    except Exception as exc:  # The folder is still usable for browsing if indexing is unavailable.
+        return {
+            "workspace": str(WORKSPACE),
+            "result": f"Opened {WORKSPACE.name}. Indexing is not ready: {exc}",
+            "indexed_files": 0,
+        }
 
 
 @app.get("/api/settings")

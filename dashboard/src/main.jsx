@@ -107,12 +107,14 @@ function App() {
   const [gitData, setGitData] = useState(null);
   const [branchName, setBranchName] = useState("");
   const [commitMessage, setCommitMessage] = useState("");
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const [workspacePath, setWorkspacePath] = useState("");
   const composerRef = useRef(null);
 
-  const refresh = async () => {
+  const refresh = async (query = fileQuery) => {
     const [nextStatus, nextFiles, nextDiff, nextSessions, nextSettings, nextTools] = await Promise.all([
       request("/api/status"),
-      request(`/api/files?query=${encodeURIComponent(fileQuery)}`),
+      request(`/api/files?query=${encodeURIComponent(query)}`),
       request("/api/diff"),
       request("/api/sessions"),
       request("/api/settings"),
@@ -157,7 +159,7 @@ function App() {
   }, [settingsOpen, settings]);
   useEffect(() => {
     const onKeyDown = (event) => {
-      if (event.key === "Escape") { setSettingsOpen(false); setToolsOpen(false); setGraphOpen(false); setGitOpen(false); setSelectedFile(null); }
+      if (event.key === "Escape") { setSettingsOpen(false); setToolsOpen(false); setGraphOpen(false); setGitOpen(false); setWorkspaceOpen(false); setSelectedFile(null); }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -236,6 +238,25 @@ function App() {
   };
 
   const openGit = async () => { setGitOpen(true); await refreshGit(); };
+
+  const openWorkspace = () => {
+    setWorkspacePath(status?.workspace || "");
+    setWorkspaceOpen(true);
+  };
+
+  const changeWorkspace = async () => {
+    if (!workspacePath.trim() || busy) return;
+    if (!window.confirm("Switch to this local folder and rebuild its index? Open staged changes must be applied or discarded first.")) return;
+    setBusy(true);
+    setNotice("Switching workspace and building the local index…");
+    try {
+      const payload = await request("/api/workspace", { method: "POST", body: JSON.stringify({ path: workspacePath }) });
+      setSelectedFile(null); setFileContent(""); setFileQuery(""); setMessages([]); setDiff(""); setWorkspaceOpen(false);
+      await refresh("");
+      setNotice(payload.result);
+    } catch (error) { setNotice(error.message); }
+    finally { setBusy(false); }
+  };
 
   const createGitBranch = async () => {
     if (!branchName.trim()) return;
@@ -355,6 +376,7 @@ function App() {
       <div className="header-actions">
         <span className="model-chip" title="The selected model for new requests"><span className="live-dot"></span>{currentProvider?.label || "Model"} <b>{currentModel}</b></span>
         <span className={`workspace-chip ${status?.staged ? "has-changes" : ""}`}><span>{status?.staged ? "●" : "✓"}</span>{status?.staged ? "Changes ready" : "Workspace clean"}</span>
+        <button className="tools-button" onClick={openWorkspace}>⌂ Workspace</button>
         <button className="tools-button" onClick={openGraph}>⌘ Graph</button>
         <button className="tools-button" onClick={openGit}>⌥ Git</button>
         <button className="tools-button" onClick={openTools}>⌘ Tools{connectedMcpCount ? <b>{connectedMcpCount}</b> : ""}</button>
@@ -408,6 +430,8 @@ function App() {
     </section>
 
     {selectedFile && <section className="preview pane"><div className="pane-title"><div><span className="eyebrow">FILE PREVIEW</span><h2>{selectedFile}</h2></div><button className="ghost" onClick={() => setSelectedFile(null)}>Close <kbd>Esc</kbd></button></div><pre>{fileContent}</pre></section>}
+
+    {workspaceOpen && <div className="modal-backdrop" role="presentation"><section className="workspace-modal pane" role="dialog" aria-modal="true" aria-labelledby="workspace-title"><div className="pane-title"><div><span className="eyebrow">LOCAL WORKSPACE</span><h2 id="workspace-title">Change workspace</h2></div><button className="ghost" onClick={() => setWorkspaceOpen(false)}>Close <kbd>Esc</kbd></button></div><div className="workspace-body"><p className="settings-intro">Open another local project without restarting CodeStart. Its files, Git state, graph, sessions, MCP configuration, and index stay local to that folder.</p><label>Folder path<input value={workspacePath} onChange={(event) => setWorkspacePath(event.target.value)} placeholder="/Users/you/Projects/my-app" autoFocus /></label><div className="workspace-current"><span>Current workspace</span><code>{status?.workspace || "Loading…"}</code></div>{status?.staged && <p className="workspace-warning">Apply or discard the staged changes in the current workspace before switching.</p>}<div className="settings-actions"><button className="ghost" onClick={() => setWorkspaceOpen(false)}>Cancel</button><button className="primary" disabled={busy || status?.staged || !workspacePath.trim()} onClick={changeWorkspace}>Open and reindex</button></div></div></section></div>}
 
     {graphOpen && <div className="modal-backdrop" role="presentation"><section className="graph-modal pane" role="dialog" aria-modal="true" aria-labelledby="graph-title"><div className="pane-title"><div><span className="eyebrow">CODE INTELLIGENCE</span><h2 id="graph-title">Dependency graph</h2></div><button className="ghost" onClick={() => setGraphOpen(false)}>Close <kbd>Esc</kbd></button></div><div className="graph-body"><div className="graph-summary"><span>{graphData?.nodes.length || 0} files</span><span>{graphData?.edges.length || 0} imports</span>{graphData?.truncated && <span>Showing a bounded view</span>}<button className="ghost" onClick={openGraph}>↻ Refresh</button></div>{graphData && <svg className="graph-canvas" viewBox="0 0 560 560" role="img" aria-label="Local code dependency graph"><g className="graph-edges">{graphData.edges.map((edge) => { const source = graphPositions[edge.source]; const target = graphPositions[edge.target]; return source && target ? <line key={`${edge.source}-${edge.target}`} x1={source.x} y1={source.y} x2={target.x} y2={target.y} /> : null; })}</g><g className="graph-nodes">{graphData.nodes.map((node) => { const point = graphPositions[node.id]; return <g className="graph-node" key={node.id} transform={`translate(${point.x} ${point.y})`} onClick={() => { openFile(node.id); setGraphOpen(false); }}><circle r="10" /><text x="14" y="4">{node.label}</text></g>; })}</g></svg>}{!graphData && <div className="empty-state"><span>⌘</span><h3>Building graph</h3><p>Reading local imports and dependency links.</p></div>}<p className="graph-note">Click a node to preview its file. The graph stays local and includes only workspace imports.</p></div></section></div>}
 

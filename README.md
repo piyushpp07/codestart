@@ -45,6 +45,11 @@ codestart --dashboard
 `poetry run` is only for developing CodeStart from its own repository. It is
 not the command to use inside a project you want CodeStart to inspect.
 
+You can also change projects from the dashboard: choose **Workspace**, enter
+an existing local folder, and select **Open and reindex**. CodeStart refuses to
+switch while staged edits are waiting for review, so changes cannot be applied
+to the wrong project.
+
 Open **Model settings** and choose your provider, model, API keys, and fallback
 chain. Add multiple keys (one per line) to recover from a quota or rate limit:
 CodeStart tries additional keys for the same model first, then your fallback
