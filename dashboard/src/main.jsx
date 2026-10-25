@@ -85,9 +85,8 @@ function App() {
   const [settings, setSettings] = useState(null);
   const [provider, setProvider] = useState("gemini");
   const [model, setModel] = useState("gemini-2.5-flash");
-  const [fallbackProvider, setFallbackProvider] = useState("");
-  const [fallbackModel, setFallbackModel] = useState("");
-  const [apiKey, setApiKey] = useState("");
+  const [fallbackChain, setFallbackChain] = useState([]);
+  const [apiKeys, setApiKeys] = useState("");
   const [providerModels, setProviderModels] = useState({});
   const [modelsLoading, setModelsLoading] = useState(false);
   const [inspectorTab, setInspectorTab] = useState("changes");
@@ -141,10 +140,8 @@ function App() {
     if (!settingsOpen || !settings) return;
     setProvider(settings.current.provider);
     setModel(settings.current.model);
-    const fallback = settings.current.fallbacks?.[0];
-    setFallbackProvider(fallback?.provider || "");
-    setFallbackModel(fallback?.model || "");
-    setApiKey("");
+    setFallbackChain(settings.current.fallbacks || []);
+    setApiKeys("");
     refreshProviderModels(settings.current.provider);
   }, [settingsOpen, settings]);
   useEffect(() => {
@@ -252,7 +249,6 @@ function App() {
 
   const sessionTitle = useMemo(() => status?.session?.title || "New session", [status]);
   const providerInfo = settings?.providers.find((item) => item.id === provider);
-  const fallbackInfo = settings?.providers.find((item) => item.id === fallbackProvider);
   const currentProvider = settings?.providers.find((item) => item.id === settings?.current?.provider);
   const currentModel = settings?.current?.model || "Choose a model";
   const connectedMcpCount = toolCatalog?.mcp_servers?.filter((server) => server.enabled).length || 0;
@@ -268,15 +264,36 @@ function App() {
     setModel(next?.models?.[0] || "");
     refreshProviderModels(value);
   };
+  const fallbackChoices = (targetProvider) => Array.from(new Set([
+    ...(providerModels[targetProvider]?.models || []),
+    ...(settings?.providers.find((item) => item.id === targetProvider)?.models || []),
+  ])).sort();
+  const addFallback = () => {
+    const nextProvider = settings?.providers.find((item) => item.id !== provider)?.id || provider;
+    const nextModel = fallbackChoices(nextProvider)[0] || "";
+    setFallbackChain((chain) => [...chain, { provider: nextProvider, model: nextModel }]);
+    refreshProviderModels(nextProvider);
+  };
+  const updateFallback = (index, field, value) => {
+    setFallbackChain((chain) => chain.map((fallback, currentIndex) => {
+      if (currentIndex !== index) return fallback;
+      if (field === "provider") {
+        const nextModel = fallbackChoices(value)[0] || "";
+        refreshProviderModels(value);
+        return { provider: value, model: nextModel };
+      }
+      return { ...fallback, [field]: value };
+    }));
+  };
   const saveSettings = async () => {
     setBusy(true);
     try {
       const payload = await request("/api/settings", {
         method: "POST",
-        body: JSON.stringify({ provider, model, fallbacks: fallbackProvider && fallbackModel ? [{ provider: fallbackProvider, model: fallbackModel }] : [], api_key: apiKey || null }),
+        body: JSON.stringify({ provider, model, fallbacks: fallbackChain, api_keys: apiKeys.trim() ? apiKeys.split("\n") : null }),
       });
       setSettings(payload);
-      setApiKey("");
+      setApiKeys("");
       await refreshProviderModels(provider);
       setNotice("Model settings saved. Available models were refreshed using your local provider key.");
     } catch (error) { setNotice(error.message); }
@@ -285,7 +302,7 @@ function App() {
 
   return <main>
     <header className="app-header">
-      <div className="brand"><span className="brand-mark">✦</span><div><span className="eyebrow">LOCAL-FIRST AGENT</span><h1>Code Assistant</h1></div></div>
+      <div className="brand"><span className="brand-mark">✦</span><div><span className="eyebrow">LOCAL-FIRST CODING AGENT</span><h1>CodeStart</h1></div></div>
       <div className="header-actions">
         <span className="model-chip" title="The selected model for new requests"><span className="live-dot"></span>{currentProvider?.label || "Model"} <b>{currentModel}</b></span>
         <span className={`workspace-chip ${status?.staged ? "has-changes" : ""}`}><span>{status?.staged ? "●" : "✓"}</span>{status?.staged ? "Changes ready" : "Workspace clean"}</span>
@@ -350,10 +367,10 @@ function App() {
 
     {settingsOpen && <div className="modal-backdrop" role="presentation"><section className="settings-modal pane" role="dialog" aria-modal="true" aria-labelledby="settings-title"><div className="pane-title"><div><span className="eyebrow">LOCAL SETTINGS</span><h2 id="settings-title">Model and fallback chain</h2></div><button className="ghost" onClick={() => setSettingsOpen(false)}>Close <kbd>Esc</kbd></button></div><div className="settings-body">
       <p className="settings-intro">Choose the provider that handles new requests. If it is unavailable, the optional fallback is tried automatically.</p>
-      <div className="settings-grid"><label>Primary provider<select value={provider} onChange={(e) => selectProvider(e.target.value)}>{settings?.providers.map((item) => <option key={item.id} value={item.id}>{item.label}{item.configured ? " · key configured" : ""}</option>)}</select></label><div className="model-picker"><label>Primary model<input list="primary-models" value={model} onChange={(e) => setModel(e.target.value)} placeholder="Choose or enter a model" /><datalist id="primary-models">{modelChoices.map((item) => <option key={item} value={item} />)}</datalist></label><button type="button" className="ghost refresh-models" disabled={modelsLoading} onClick={() => refreshProviderModels(provider)}>{modelsLoading ? "Loading…" : "↻ Refresh models"}</button></div></div>
+      <div className="settings-grid"><label>Primary provider<select value={provider} onChange={(e) => selectProvider(e.target.value)}>{settings?.providers.map((item) => <option key={item.id} value={item.id}>{item.label}{item.configured ? ` · ${item.key_count} key${item.key_count === 1 ? "" : "s"}` : ""}</option>)}</select></label><div className="model-picker"><label>Primary model<input list="primary-models" value={model} onChange={(e) => setModel(e.target.value)} placeholder="Choose or enter a model" /><datalist id="primary-models">{modelChoices.map((item) => <option key={item} value={item} />)}</datalist></label><button type="button" className="ghost refresh-models" disabled={modelsLoading} onClick={() => refreshProviderModels(provider)}>{modelsLoading ? "Loading…" : "↻ Refresh models"}</button></div></div>
       <p className={`model-source ${selectedProviderModels?.source || "catalog"}`}>{selectedProviderModels?.message || "Suggested models are shown until you refresh from the provider."}</p>
-      {providerInfo?.requires_api_key && <label>API key <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={providerInfo.configured ? "Configured — enter a replacement only" : "Paste key to save locally"} /><small>Your key is stored only in this project’s local <code>.env</code>. It is never displayed here.</small></label>}
-      <div className="fallback"><div><span className="eyebrow">RECOVERY</span><h3>Fallback provider</h3><p>Used only when the primary provider returns an error.</p></div><div className="settings-grid"><label>Provider<select value={fallbackProvider} onChange={(e) => { const value = e.target.value; setFallbackProvider(value); const next = settings.providers.find((item) => item.id === value); setFallbackModel(next?.models?.[0] || ""); }}><option value="">No fallback</option>{settings?.providers.filter((item) => item.id !== provider).map((item) => <option key={item.id} value={item.id}>{item.label}{item.configured ? " · key configured" : ""}</option>)}</select></label>{fallbackProvider && <label>Fallback model<input list="fallback-models" value={fallbackModel} onChange={(e) => setFallbackModel(e.target.value)} /><datalist id="fallback-models">{fallbackInfo?.models.map((item) => <option key={item} value={item} />)}</datalist></label>}</div></div>
+      {providerInfo?.requires_api_key && <label>Add API key(s) <textarea value={apiKeys} onChange={(e) => setApiKeys(e.target.value)} placeholder={providerInfo.configured ? "Paste additional keys — one per line" : "Paste one or more keys — one per line"} /><small>{providerInfo.key_count ? `${providerInfo.key_count} key${providerInfo.key_count === 1 ? " is" : "s are"} already configured. New keys are added to the local recovery pool.` : "Keys are stored only in this project’s local .env file."} They are never displayed in the dashboard.</small></label>}
+      <div className="fallback"><div className="fallback-heading"><div><span className="eyebrow">RECOVERY ORDER</span><h3>Fallback models</h3><p>Extra keys for the primary model are tried first. Then these models are tried in order when a provider error or limit is reached.</p></div><button type="button" className="ghost" onClick={addFallback}>+ Add fallback</button></div><div className="fallback-list">{fallbackChain.length === 0 && <p className="no-fallbacks">No model fallback is configured yet.</p>}{fallbackChain.map((fallback, index) => <div className="fallback-row" key={`${fallback.provider}-${index}`}><span>{index + 1}</span><label>Provider<select value={fallback.provider} onChange={(e) => updateFallback(index, "provider", e.target.value)}>{settings?.providers.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><label>Model<input list={`fallback-models-${index}`} value={fallback.model} onChange={(e) => updateFallback(index, "model", e.target.value)} /><datalist id={`fallback-models-${index}`}>{fallbackChoices(fallback.provider).map((item) => <option key={item} value={item} />)}</datalist></label><button type="button" className="ghost remove-fallback" onClick={() => setFallbackChain((chain) => chain.filter((_, currentIndex) => currentIndex !== index))}>Remove</button></div>)}</div></div>
       <div className="settings-actions"><button className="ghost" onClick={() => setSettingsOpen(false)}>Cancel</button><button className="primary" disabled={busy || !model} onClick={saveSettings}>Save model settings</button></div>
     </div></section></div>}
     <footer className={notice ? "has-notice" : ""}><span>{notice || "Ready to help with this workspace."}</span>{busy && <span className="footer-busy">Working</span>}</footer>

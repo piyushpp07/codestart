@@ -1,10 +1,12 @@
 from claude_code.config import config
 from claude_code.observability.logger import get_logger
+from claude_code.settings import provider_api_keys
+from pydantic import SecretStr
 
 logger = get_logger(__name__)
 
 
-def _build_llm(provider: str, model: str):
+def _build_llm(provider: str, model: str, api_key: str | None = None):
     """Create one provider-specific LangChain model."""
     logger.info(f"Using LLM provider: {provider}, model: {model}")
     if provider == "ollama":
@@ -56,34 +58,51 @@ def _build_llm(provider: str, model: str):
     if provider == "anthropic":
         from langchain_anthropic import ChatAnthropic
 
+        if api_key:
+            return ChatAnthropic(
+                model_name=model,
+                timeout=None,
+                stop=None,
+                api_key=SecretStr(api_key),
+            )
         return ChatAnthropic(model_name=model, timeout=None, stop=None)
     if provider == "gemini":
         from langchain_google_genai import ChatGoogleGenerativeAI
-        return ChatGoogleGenerativeAI(model=model)
+        return ChatGoogleGenerativeAI(model=model, google_api_key=api_key)
     if provider == "openai":
         from langchain_openai import ChatOpenAI
-        return ChatOpenAI(model=model)
+        return ChatOpenAI(model=model, api_key=SecretStr(api_key) if api_key else None)
     raise ValueError(
         f"Unsupported LLM provider {provider!r}. Use one of: anthropic, gemini, ollama, openai."
     )
 
 
 def get_llm():
-    """Return the selected model wrapped with any configured fallback models."""
+    """Return a model with same-key and model/provider fallback routing."""
     provider = config["llm"]["provider"].strip().lower()
     model = config["llm"]["model"]
     logger.info("Using primary LLM provider: %s, model: %s", provider, model)
-    primary = _build_llm(provider, model)
-    fallbacks = []
+
+    def build_key_pool(target_provider: str, target_model: str) -> list:
+        keys = provider_api_keys(target_provider)
+        if not keys:
+            return [_build_llm(target_provider, target_model)]
+        return [_build_llm(target_provider, target_model, key) for key in keys]
+
+    primary_pool = build_key_pool(provider, model)
+    primary = primary_pool[0]
+    # A second key for the same provider/model is the first recovery option
+    # when a provider rejects a request due to rate limit or quota exhaustion.
+    fallbacks = primary_pool[1:]
     for fallback in config["llm"].get("fallbacks", []):
         if not isinstance(fallback, dict):
             continue
         fallback_provider = str(fallback.get("provider", "")).strip().lower()
         fallback_model = str(fallback.get("model", "")).strip()
-        if not fallback_provider or not fallback_model or fallback_provider == provider:
+        if not fallback_provider or not fallback_model:
             continue
         try:
-            fallbacks.append(_build_llm(fallback_provider, fallback_model))
+            fallbacks.extend(build_key_pool(fallback_provider, fallback_model))
         except (ImportError, ValueError) as exc:
             logger.warning("Skipping invalid fallback %s/%s: %s", fallback_provider, fallback_model, exc)
     if fallbacks:

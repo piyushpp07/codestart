@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import json
-import os
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from claude_code.settings import PROVIDERS
+from claude_code.settings import PROVIDERS, provider_api_keys
 
 _TIMEOUT_SECONDS = 12
 
@@ -25,8 +24,8 @@ def _catalog_response(provider: str, message: str, status: str = "catalog") -> d
 
 
 def _provider_key(provider: str) -> str | None:
-    key_name = PROVIDERS[provider]["key_env"]
-    return os.getenv(key_name) if key_name else None
+    keys = provider_api_keys(provider)
+    return keys[0] if keys else None
 
 
 def _openai_models(key: str) -> list[str]:

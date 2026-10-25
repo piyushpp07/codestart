@@ -178,7 +178,7 @@ def show_help() -> None:
     console.print("  [bold]/session[/bold] — show current session id")
     console.print("  [bold]/help[/bold] — show this help")
     console.print("  [bold]/exit[/bold] — quit")
-    console.print("  [bold]claude_code --dashboard[/bold] — launch the local web dashboard")
+    console.print("  [bold]codestart --dashboard[/bold] — launch the local web dashboard")
     console.print("\n[dim]Example: /plan Add JWT authentication to the Express API[/dim]")
 
 
@@ -195,7 +195,7 @@ def show_terminal_dashboard(vectorstore, session_id: str) -> None:
     status.add_row("Index", f"{chunks} chunks · {get_vectorstore_provider().upper()}")
     status.add_row("Changes", "[yellow]Staged[/yellow]" if get_change_manager().has_staged_changes else "[green]Clean[/green]")
     commands = "[bold]/plan[/bold] → [bold]/write[/bold] → [bold]/diff[/bold] → [bold]/approve[/bold] → [bold]/test[/bold]"
-    console.print(Panel(status, title="[bold cyan]Code Assistant Dashboard[/bold cyan]", box=box.ROUNDED))
+    console.print(Panel(status, title="[bold cyan]CodeStart Dashboard[/bold cyan]", box=box.ROUNDED))
     console.print(Panel(commands, title="Workflow", border_style="blue"))
 
 
@@ -354,8 +354,8 @@ async def show_history(session_id: str) -> None:
 
 
 async def run():
-    logger.info("Starting Claude Code assistant")
-    console.print("\n[bold blue]Claude Code[/bold blue] — RAG-powered code assistant")
+    logger.info("Starting CodeStart assistant")
+    console.print("\n[bold blue]CodeStart[/bold blue] — local-first coding agent")
     vectorstore, session_id = initialize()
     memory_dir = Path(config["memory"]["db_path"]).parent
     memory_dir.mkdir(parents=True, exist_ok=True)

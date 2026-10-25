@@ -38,10 +38,11 @@ from claude_code.settings import provider_catalog, public_llm_settings, save_llm
 from claude_code.tools.filesystem_tools import _resolve_workspace_path
 
 WORKSPACE = Path.cwd().resolve()
-WEB_ROOT = Path(__file__).resolve().parent.parent / "dashboard"
+workspace_dashboard = WORKSPACE / "dashboard"
+WEB_ROOT = workspace_dashboard if workspace_dashboard.exists() else Path(__file__).resolve().parent.parent / "dashboard"
 DIST_ROOT = WEB_ROOT / "dist"
 
-app = FastAPI(title="Claude Code Dashboard")
+app = FastAPI(title="CodeStart Dashboard")
 
 
 class ChatRequest(BaseModel):
@@ -61,6 +62,7 @@ class LLMSettingsUpdate(BaseModel):
     model: str
     fallbacks: list[dict] = []
     api_key: str | None = None
+    api_keys: list[str] | None = None
 
 
 class MCPPresetUpdate(BaseModel):
@@ -120,6 +122,7 @@ async def update_settings(request: LLMSettingsUpdate) -> dict:
             model=request.model,
             fallbacks=request.fallbacks,
             api_key=request.api_key,
+            api_keys=request.api_keys,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

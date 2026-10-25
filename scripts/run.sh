@@ -43,5 +43,5 @@ if [[ ! -d dashboard/node_modules ]]; then
 fi
 npm run build --prefix dashboard
 
-echo "Starting Code Assistant at http://127.0.0.1:8000"
-exec .venv/bin/claude_code --dashboard
+echo "Starting CodeStart at http://127.0.0.1:8000"
+exec .venv/bin/python -m claude_code.main --dashboard

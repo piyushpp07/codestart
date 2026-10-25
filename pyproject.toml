@@ -1,7 +1,7 @@
 [project]
-name = "project1"
+name = "codestart"
 version = "0.1.0"
-description = "A local-first RAG-powered command-line coding assistant"
+description = "A local-first, extensible coding agent with reviewable changes and MCP integrations"
 readme = "README.md"
 authors = [
     {name = "piyushpp07",email = "piyushpar7@gmail.com"}
@@ -57,6 +57,7 @@ dependencies = [
 ]
 
 [project.scripts]
+codestart = "claude_code.main:main"
 claude_code = "claude_code.main:main"
 
 [tool.poetry]

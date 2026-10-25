@@ -1,9 +1,9 @@
-# Code Assistant
+# CodeStart
 
-Code Assistant is a local-first coding agent with a browser dashboard and a
-terminal workflow. It indexes the project you run it from, answers questions
-about the codebase, proposes reviewable changes, and lets you connect trusted
-MCP tools when you need integrations beyond the local workspace.
+CodeStart is a local-first coding agent with a browser dashboard and terminal
+workflow. It indexes the project you run it from, answers questions about the
+codebase, proposes reviewable changes, and connects trusted MCP tools when you
+need integrations beyond the local workspace.
 
 Nothing is hosted by this project: the dashboard binds to `127.0.0.1`, source
 files, chat history, API keys, indexes, and MCP connections remain on the
@@ -22,19 +22,21 @@ Clone the repository, then start everything with one command:
 
 ```bash
 git clone <your-repository-url>
-cd code-assistant
+cd codestart
 ./run.sh
 ```
 
-`run.sh` creates a local Python environment, installs the Python package,
+`run.sh` creates a local Python environment, installs CodeStart,
 installs/builds the dashboard, creates `.env` from `.env.example` when needed,
 and starts the dashboard at [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
-Open **Model settings** and choose your provider, model, API key, and optional
-fallback. After saving a key, use **Refresh models** to load the models available
-to that account (or local Ollama). Keys are saved only to the local `.env` file
-and are never returned by the dashboard. Use `Ctrl+C` in the terminal to stop
-the app.
+Open **Model settings** and choose your provider, model, API keys, and fallback
+chain. Add multiple keys (one per line) to recover from a quota or rate limit:
+CodeStart tries additional keys for the same model first, then your fallback
+models in the order shown. After saving a key, use **Refresh models** to load
+the models available to that account (or local Ollama). Keys are saved only to
+the local `.env` file and are never returned by the dashboard. Use `Ctrl+C` in
+the terminal to stop the app.
 
 > On macOS or Linux, make the launcher executable once after cloning if Git
 > did not preserve its mode: `chmod +x run.sh`.
@@ -73,8 +75,8 @@ Write modes preserve the safe local workflow.
 For terminal-only usage, the earlier opt-in environment variables still work:
 
 ```bash
-CLAUDE_CODE_ENABLE_MCP=true poetry run claude_code
-CLAUDE_CODE_ENABLE_MCP=true CLAUDE_CODE_ENABLE_GITHUB_MCP=true poetry run claude_code
+CLAUDE_CODE_ENABLE_MCP=true poetry run codestart
+CLAUDE_CODE_ENABLE_MCP=true CLAUDE_CODE_ENABLE_GITHUB_MCP=true poetry run codestart
 ```
 
 ## Terminal usage
@@ -84,7 +86,7 @@ If you prefer Poetry instead of the launcher:
 ```bash
 poetry install --with dev
 cp .env.example .env
-poetry run claude_code
+poetry run codestart
 ```
 
 Useful commands:
@@ -103,7 +105,7 @@ Useful commands:
 /help
 ```
 
-Start the browser UI with `poetry run claude_code --dashboard`. The dashboard
+Start the browser UI with `poetry run codestart --dashboard`. The dashboard
 will use the current directory as its workspace, so run it from the project
 you want to inspect.
 
@@ -130,6 +132,19 @@ poetry run pytest
 poetry run ruff check claude_code tests
 poetry run pyright
 ```
+
+## Contributing
+
+CodeStart is designed to be approachable for first-time contributors. Start
+with [CONTRIBUTING.md](CONTRIBUTING.md): it explains the development setup,
+branch and pull-request expectations, and how to select a beginner-friendly
+issue. Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and report security
+issues privately using [SECURITY.md](SECURITY.md).
+
+Useful contribution ideas are tracked in the `good first issue`,
+`help wanted`, `provider`, and `integration` labels. A healthy contribution
+keeps the local-first promise: no API key, workspace content, or remote tool is
+used without a deliberate user action.
 
 ## GitHub release checklist
 
